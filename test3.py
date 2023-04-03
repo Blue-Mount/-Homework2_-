@@ -79,7 +79,6 @@ import torch
 import torch.nn as nn
 from transformers import BertModel
 
-
 class BertForSequenceTagging(nn.Module):
 
     def __init__(self, num_labels):
@@ -88,6 +87,7 @@ class BertForSequenceTagging(nn.Module):
         self.bert = BertModel.from_pretrained('bert-base-chinese')
         self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(self.bert.config.hidden_size, num_labels)
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):
         outputs = self.bert(
@@ -98,6 +98,7 @@ class BertForSequenceTagging(nn.Module):
         sequence_output = outputs[0]
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
+        logits = self.softmax(logits)
 
         loss = None
         if labels is not None:
@@ -105,7 +106,7 @@ class BertForSequenceTagging(nn.Module):
             active_loss = attention_mask.view(-1) == 1
             active_logits = logits.view(-1, self.num_labels)[active_loss]
             active_labels = labels.view(-1)[active_loss]
-            loss = loss_fct(active_logits, active_labels)
+            loss = loss_fct(active_logits, active_labels.view(-1))
 
         if labels is not None:
             return loss
@@ -116,3 +117,4 @@ model = BertForSequenceTagging(num_labels=5)
 optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
 criterion = nn.CrossEntropyLoss(ignore_index=-100)
 metric = nn.CrossEntropyLoss(ignore_index=-100)
+
